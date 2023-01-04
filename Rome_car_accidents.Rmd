@@ -1,0 +1,432 @@
+---
+title: "A study on Rome car accidents in 2021"
+author: "Lavagna Leonardo"
+date: "21/4/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Introduction
+Using the observed outcomes of the number of car accidents in Rome in 2021, we will carry out a complete Bayesian analysis using as statistical model a conditionally i.i.d. Poisson distribution $Y_1, ..., Y_n|\theta \sim Poisson(\theta)$ with unknown parameter $\theta$. We will start with an exploratory data analysis, then we will focus on making inference on $\theta$.
+
+## Setup
+
+We load the dataset of interest as a dataframe from the file *Rome_car_accidents.RData* which contains the number of accidents in the city of Rome in 2021, hour by hour, day by day.
+```{r}
+library(latex2exp)
+load("~/Desktop/Projects/Rome_car_accidents.RData")
+```
+The dataframe contains 8784 rows and 4 columns. We will now store a subset of it in the variable $y_{obs}$.
+
+```{r}
+mydata <- subset(roma,subset=sign_up_number==104)
+y_obs <- mydata$car_accidents
+```
+
+The import was successful, indeed the first values stored in $y_{obs}$ are the same as those in the *Rome_car_accidents.RData* file. We have now $n=19$ elements to work with.
+
+```{r}
+n <- length(y_obs)
+n
+```
+
+## Exploratory data analysis
+
+Considering the $y_{obs}$ as described before, we want to check some interesting features:
+
+* The mean and variance of the observations
+* The median and mode of the observations
+* The distribution of the data
+
+```{r}
+print(paste("The mean of the observations is: ", round(mean(y_obs), 3), sep =""))
+print(paste("The variance of the observations is: ", round(var(y_obs), 3), sep =""))
+print(paste("The median of the observations is: ", median(y_obs), sep =""))
+print(paste("The mode of the observations is: ", y_obs[which.max(tabulate(match(y_obs, unique(y_obs))))], sep=""))
+```
+
+
+The distribution of the data is given by the following plot.
+
+```{r fig.align="center"}
+hist(y_obs, col="orchid2", main="Distribution of the data")
+rug(y_obs, lwd=2)
+```
+
+
+## 2. Bayesian model
+
+
+For our analysis it is of crucial importance to have an updated version of the parameter of interest, as we see from the following equation
+
+$$
+\pi(\theta|y_1, ..., y_n) = \frac{\pi(y_1, ..., y_n|\theta)\pi(\theta)}{\pi(y_1, ..., y_n)}
+$$
+
+where: 
+
+* $\pi(y_1, ..., y_n|\theta)$ is the likelihood function;
+* $\pi(\theta)$ is the prior distribution;
+* $\pi(\theta|y_1, ..., y_n)$ is the posterior distribution.
+
+All these probabilities involve $\theta$ and our task is to find it in the best possible way. In particular we will use the Likelihood function to measure how much our statistical model fits the sample data for given values of the unknown parameter.
+
+
+### Likelihood
+
+In our case each observation is distributed with the Poisson distribution with $\theta = 3.22$, so the joint distribution is given by
+$$
+Y_1, ..., Y_n|\theta \sim f(y_1, ..., y_n|\theta) = \prod_{i=1}^{n} (y_i|\theta) = \prod_{i=1}^{n} \frac{e^{-\theta}\theta^{y_i}}{y_i!} \ .
+$$
+
+In the next steps we consider the likelihood function where $\theta \propto e^{-n\theta}\theta^{\sum_{i=1}^{n} y_i}$. 
+
+We show some plots to see the different behaviour of the data once a particular theta parameter is given.
+
+```{r fig.align="center"}
+par(mfrow=c(2,2))
+
+theta <- 3.22
+plot(y_obs, dpois(y_obs, lambda = theta), xlab="observation", ylab="likehood", main=TeX("$\\pi(y_1,...,y_n|\\theta) \\sim Poisson(\\theta = 3.22)$"), lwd=2)
+points(y_obs, dpois(y_obs, lambda = theta), col = "orchid2", pch = 19)
+grid()
+
+theta <- 4.22
+plot(y_obs, dpois(y_obs, lambda = theta), xlab="observation", ylab="likehood", main=TeX("$\\pi(y_1,...,y_n|\\theta) \\sim Poisson(\\theta = 4.22)$"), lwd=2)
+points(y_obs, dpois(y_obs, lambda = theta), col = "orchid2", pch = 19)
+grid()
+
+theta <- 5.22
+plot(y_obs, dpois(y_obs, lambda = theta), xlab="observation", ylab="likehood", main=TeX("$\\pi(y_1,...,y_n|\\theta) \\sim Poisson(\\theta = 5.22)$"), lwd=2)
+points(y_obs, dpois(y_obs, lambda = theta), col = "orchid2", pch = 19)
+grid()
+
+theta <- 6.22
+plot(y_obs, dpois(y_obs, lambda = theta), xlab="observation", ylab="likehood", main=TeX("$\\pi(y_1,...,y_n|\\theta) \\sim Poisson(\\theta = 6.22)$"), lwd=2)
+points(y_obs, dpois(y_obs, lambda = theta), col = "orchid2", pch = 19)
+grid()
+```
+
+
+### Prior distribution
+
+The prior distribution can be effectively used to describe our prior information, and apply it to the likelihood function to produce the same shape for the posterior distribution. After that, we will know more about which parameter is closer to our data. 
+
+We can use the conjugacy strategy to avoid integrating the marginal probability on $\theta$, recalling that: *a class $P$ of prior distributions for $\theta$ is called conjugate for a sampling model $p(y|\theta)$ if $p(\theta) \in P$ implies also $p(\theta|y) \in P$*.
+
+In this case the suitable prior distribution leads the posterior within the same family that turns out to be the **Gamma Distribution** family with density:
+
+$$
+X \sim Gamma(r,s), \,\,\,\,\,\, f(x) = \frac{r^{s}x^{s-1}e^{-rx}}{\Gamma(s)} \mathbb{I}_{(0, +\infty)}(x)  \,\,\,\,\, r,s > 0
+$$
+
+where $r$ is the **rate** and $s$ is the **shape**. We can write the prior as follows:
+
+$$
+\pi(\theta) = \frac{r^{s}\theta^{s-1}e^{-r\theta}}{\Gamma(s)} \mathbb{I}_{(0, +\infty)} (\theta) \ .
+$$
+
+To choose suitable prior parameters $r$ and $s$, we consider the linear equation:
+
+$$
+\begin{cases}
+  \mathbb{E}[\theta] = \frac{s}{r} \\
+  \mathbb{Var}[\theta] = \frac{s}{r^2}
+\end{cases}
+\rightarrow
+\begin{cases}
+  s = \mathbb{E}[\theta] \cdot r \\
+  \mathbb{Var}[\theta] = \frac{\mathbb{E}[\theta] \cdot r}{r^2}
+\end{cases}
+\rightarrow
+\begin{cases}
+  s = \mathbb{E}[\theta] \cdot \frac{\mathbb{E}[\theta]}{\mathbb{Var}[\theta]} \\
+  r = \frac{\mathbb{E}[\theta]}{\mathbb{Var}[\theta]}
+\end{cases}
+$$
+
+In this case we will consider as our prior subjective belief $$s = \mathbb{E}[\theta] \cdot \frac{\mathbb{E}[\theta]}{\mathbb{Var}[\theta]} \approx 1.37$$ (where $\mathbb{E}[\theta] = 3.22$) and  $\mathbb{Var}[\theta] = \mathbb{Var}(y_{caraccidents} - y_{obs}) \approx 7.56$) and  $$r = \frac{\mathbb{E}[\theta]}{\mathbb{Var}[\theta]} \approx 0.42\ .$$
+
+```{r, warning=FALSE}
+# prior parameters
+E_x <- 3.22
+
+library(vecsets)
+# history of observations 
+Var_x <- var(vsetdiff(roma$car_accidents, y_obs)) 
+s_prior <- (E_x^2)/Var_x
+r_prior <- E_x/Var_x
+
+# updated parameters
+r_post <- r_prior + length(y_obs)
+s_post <- s_prior + sum(y_obs)
+```
+
+Now, we show the prior distribution with its prior shape:
+
+```{r fig.align="center"}
+curve(dgamma(x, rate=r_prior, shape=s_prior), from=0, to=15, xlab=expression(theta), ylab= TeX("$\\pi(\\theta)$"), main="", cex.main=0.5,col="blue2", lwd=2)
+grid()
+```
+
+
+
+### Posterior update
+Let us now move to the posterior update concept $\pi(\theta|y_1, ..., y_n)$, where, once again, we will apply the conjugancy analysis:
+
+$$
+\pi(\theta|y_1, ..., y_n) = \frac{\pi(y_1, ..., y_n|\theta)\pi(\theta)}{\pi(y_1, ..., y_n)} \propto \pi(y_1, ..., y_n|\theta)\pi(\theta) \\ =e^{-n\theta}\theta^{\sum_{i=1}^{n} y_i}e^{-r\theta}\theta^{s-1} = e^{-(n+r)\theta}\theta^{(s+\sum_{i=1}^{n} y_i)-1}  \ .
+$$
+
+We drop the constants in order to see the shape of the posterior distribution. The posterior is also a Gamma distribution
+
+$$
+\pi(\theta|y_1, ..., y_n) \sim Gamma\Big(r^* = n + r, \,\,s^* = s+ \sum_{i=1}^{n} y_i\Big)
+$$
+
+```{r fig.align="center"}
+curve(dgamma(x, rate=r_post, shape=s_post), from=2.5, to=5.5, xlab=expression(theta), ylab= TeX("$\\pi(\\theta | y_1, ..., y_n)$"), main="", cex.main=0.5,col="red2", lwd=2)
+grid()
+```
+
+The $\theta$ parameter is updated and fits well the data. The rate and shape parameters are: $r_{post} = 19.42$ and $s_{post} = 75.37$. 
+
+
+### Point estimates
+We can use the different point estimates to summarize the uncertainty about the parameter's distribution. The most common summary statistics for posterior distributions are the posterior mean, posterior mode and posterior median, in this case the results are:
+
+* **posterior mode** $\hat{\theta}_{bayes}^{mode}$: represents the higher value of $\theta$ for which we want: $\hat{\theta}_{bayes}^{mode} = \operatorname{argmax}_{\theta \in \Theta} \pi(\theta|y^{obs}) = \frac{s^*-1}{r^*}$
+
+```{r fig.align="center"}
+
+print(paste("The posterior mode is equal to: ", round((s_post-1)/r_post, 4), sep=""))
+```
+
+A mode is the most frequent point in a data set. In a Bayesian distribution, this refers to the peak of the distribution.
+
+* **posterior median** $\hat{\theta}_{bayes}^{med}$:  represents the $\theta$ value which divides the distribution in half for which: \ $$\hat{\theta}_{bayes}^{med} = {\displaystyle \int_{-\infty}^{\hat{\theta}_{bayes}^{med}}} \pi(\theta|y^{obs}) \,d\theta = {\displaystyle \int_{\hat{\theta}_{bayes}^{med}}}^{+\infty} \pi(\theta|y^{obs}) \,d\theta = \frac{1}{2}$$
+
+```{r fig.align="center"}
+print(paste("The posterior median is equal to: ", round(qgamma(0.5, shape=s_post, rate=r_post), 4), sep=""))
+```
+
+
+- **posterior mean** $\hat{\theta}_{bayes}^{mean}$: represents: $\hat{\theta}_{bayes}^{mean} =   \mathbb{E}(\theta|y^{obs}) = \frac{s^*}{r^*}$
+
+```{r fig.align="center"}
+print(paste("The posterior mean is equal to: ", round(s_post/r_post, 4), sep=""))
+```
+
+The posterior mean is the expected value of the parameter estimate, using the posterior distribution.
+
+Here we can see the point estimates over the posterior uncertainty:
+
+```{r fig.align="center"}
+curve(dgamma(x, rate=r_post, shape=s_post), from=2.5, to=5.5, xlab=expression(theta), ylab= TeX("$\\pi(\\theta | y_1, ..., y_n)$"), main="", cex.main=0.5,col="red2", lwd=2)
+title(main = "Point estimates", col.main= "black")
+abline(v=3.8531, lty=1, col = "black")
+abline(v=3.8872, lty=1, col = "green")
+abline(v=3.9042,lty=1, col = "purple")
+legend("topright", legend=c("Mode", "Median", "Mean"), col=c("black", "green", "purple"), lty=1, cex=0.8)
+grid()
+```
+
+As we known these point estimations are used to measure the central tendency of the posterior distribution. The exact distribution of the posterior is not known, and for this reason it is needed a measure that represents with one value the distribution. 
+
+We prefer sometimes to use the posterior mode that is more precise and gives the maximum $\theta$ value of our posterior distribution. The median and the mean have typically the same behaviour. Also, often, the choice of a point estimate can depend on the posterior loss, for example:
+
+* if we have a loss function that is an absolute loss, the best estimate is the posterior median
+* if we have a loss function that is a quadratic loss, the best estimate is the posterior mean
+* if we have a loss function that is an "all-or-nothing" loss, the best estimate is the posterior mode
+
+Some of the previous considerations can change when the distribution is highly irregular or asymmetric.
+
+
+### Posterior uncertainty
+Lets look at the posterior distribution.
+
+```{r fig.align="center"}
+curve(dgamma(x, rate=r_post, shape=s_post), from=2.5, to=5.5, xlab=expression(theta), ylab= TeX("$\\pi(\\theta | y_1, ..., y_n)$"), main="", cex.main=0.5,col="red2", lwd=2)
+title(main = "Posterior distribution", col.main= "black")
+grid()
+```
+
+We see that a good $\theta$ parameter tends to be in the interval between 2.5 and 5.5. To confirm this aspect we must investigate further the uncertanty in the posterior distribution. 
+
+The uncertainty in the posterior distribution is related to the posterior variance with respect to the posterior mean.
+
+```{r fig.align="center"}
+print(paste("The posterior mean is: ", round(s_post/r_post, 4), sep=""))
+print(paste("The posterior variance is: ", round(s_post/(r_post^2), 4), sep=""))
+```
+
+
+In this case the posterior variance is low. This means that the expected value is consistent.
+
+
+### Interval Estimates
+
+Often we prefer identifying the region of the parameter space that likely contains the true value of the parameter. After observing the data $Y$, we construct a credible interval $[l(y), u(y)]$ such that the probability that $l(y) < \theta < u(y)$ is large enough.
+
+We prefer to use the **HPD (Higher posterior density) region**. The HPD has the nice property that any point within the interval has a higher density than other points outside, so this interval is the collection of most likely values of the parameters.
+
+The HPD is given in terms  of a subset of the parameter space, $s(y) \subset \Theta$, such that:
+
+* $\pi(\theta \in s(y)|Y=y) = 1 - \alpha$
+* if $\theta_{a} \in s(y)$ and $\theta_{b} \notin s(y)$, then $\pi(\theta_{a}|Y=y) > \pi(\theta_{b}|Y=y)$
+
+As we can see below, the values and the range where the hypothetical $\theta$ could be is 
+
+```{r fig.align="center", warning=FALSE}
+library(TeachingDemos)
+
+posterior_qf <- function(x) qgamma(x, shape = s_post, rate = r_post)
+posterior_icdf <- function(x) qgamma(x, shape = s_post, rate = r_post)
+
+interval_estimate_hpd <- TeachingDemos::hpd(posterior.icdf = posterior_qf, conf=0.95)
+
+print("The HPD region in this case is between: ")
+range(interval_estimate_hpd)
+
+curve(dgamma(x, rate=r_post, shape=s_post), from=2.5, to=5.5, xlab=expression(theta), ylab= TeX("$\\pi(\\theta | y_1, ..., y_n)$"), main="", cex.main=0.5,col="red2", lwd=2)
+title(main = "HPD Region at 95% of confidence", col.main= "black")
+abline(v=interval_estimate_hpd[1],lty=3, lwd=2)
+abline(v=interval_estimate_hpd[2],lty=3, lwd=2)
+abline(h=dgamma(interval_estimate_hpd[1], shape = s_post, rate = r_post), lty=3, lwd=2)
+grid()
+
+```
+
+
+
+### Difference between the prior and the posterior distribution
+The prior distribution incorporates the subjective beliefs about parameters, since a new evidence is introduced. But, sometimes the prior distribution can be *uninformative* or *informative*, if we consider the beta uniform distribution the posterior will be driven entirely by the data (likelihood function). 
+
+In this case we have an informative distribution, indeed the prior shape will give more information about the hyphotetical posterior shape. 
+
+The posterior distribution describes in a better way the truth of a data generating process than the prior probability, since the posterior includes more information.
+
+```{r fig.align="center"}
+par(mfrow=c(1, 2))
+
+curve(dgamma(x, rate=r_prior, shape=s_prior), from=0, to=15, xlab=expression(theta), ylab= TeX("$\\pi(\\theta)$"), cex.main=0.5,col="blue2", lwd=2)
+title(main = "Prior", col.main= "black")
+grid()
+
+curve(dgamma(x, rate=r_post, shape=s_post), from=2.5, to=5.5, xlab=expression(theta), ylab= TeX("$\\pi(\\theta | y_1, ..., y_n)$"), main="", cex.main=0.5,col="red2", lwd=2)
+title(main = "Posterior", col.main= "black")
+grid()
+```
+
+The main differences between the distributions lie in
+
+* the parameters that describe each distribution
+* the point estimates
+* the variance and the mean parameters
+
+As we can see the posterior is slightly different on its direction, after the updated value of the $\theta$ parameter, note that the dashed lines represent the point estimates of the prior distribution:
+
+```{r fig.align="center"}
+curve(dgamma(x, rate=r_prior, shape=s_prior), from=0, to=5.5, xlab=expression(theta), ylab= TeX("$\\pi(\\theta) + \\pi(\\theta | y_1, ..., y_n)$"), main="", cex.main=0.5,col="blue2", ylim= c(0, 0.90), lwd=2)
+abline(v=s_prior/r_prior, lty=3, col = "black", lwd=2)
+abline(v=qgamma(0.5, shape=s_prior, rate=r_prior), lty=3, col = "green", lwd=2)
+abline(v=(s_prior-1)/r_prior, lty=3, col = "purple", lwd=2)
+
+curve(dgamma(x, rate=r_post, shape=s_post), from=0, to=5.5, xlab=expression(theta), main="", cex.main=0.5,col="red2", add=TRUE, ylim= c(0, 0.90), lwd=2)
+abline(v=s_post/r_post, lty=1, col = "black")
+abline(v=qgamma(0.5, shape=s_post, rate=r_post), lty=1, col = "green")
+abline(v=(s_post-1)/r_post,lty=1, col = "purple")
+grid()
+
+title(main = "Comparison of the prior and posterior distribution", col.main= "black")
+legend("topright", legend=c("Prior", "Posterior", "Mean", "Median", "Mode"), col=c("blue", "red", "black", "green", "purple"), lty=1, cex=0.8)
+
+print(paste("The prior mean is: ", 3.22, sep=""))
+print(paste("The prior variance is: ", 7.56, sep=""))
+print(paste("The posterior mean is: ", round(s_post/r_post, 4), sep=""))
+print(paste("The posterior variance is: ", round(s_post/(r_post^2), 4), sep=""))
+```
+
+
+### Posterior predictive distribution 
+
+Predictions about more data are obtained with the posterior predictive distribution, here we will illustrate the posterior predictive distribution for $Y_{next}|y_1, ..., y_n$.
+
+Suppose to have: 
+
+$$
+\begin{cases}
+  Y_{next}, Y|\theta \sim f(y_{next}, y|\theta) = f(y_{next}|\theta) f(y|\theta) \\
+  \theta \sim Gamma(r, s)
+\end{cases}
+$$
+
+where $Y_{next}$ and $Y$ are conditional independent w.r.t. $\theta$ and  $f(y_{next}, y|\theta) \sim Poisson(\theta)$. Given an observation $Y = y$ we can find what is $Y_{next}$ conditioned on $y$: 
+
+$$
+Y_{next}|y \sim \frac{J(y_{next}, y)}{J(y)} = m(y_{next}, y)
+$$
+
+this is called (conditional) posterior predictive. We are interested in:
+
+$$
+m(y_{next}|y) \propto J(y_{next}, y)
+$$
+
+Working on the joint, we have:
+
+$$
+J(y_{next}, y) = {\displaystyle \int_{\Theta} J(y_{next}, y, \theta) \,d\theta} \\
+= {\displaystyle \int_{\Theta} J(y_{next}|\theta) J(y|\theta) \pi(\theta) \,d\theta} \\
+\propto {\displaystyle \int_{\Theta} f(y_{next}|\theta) \frac{f(y|\theta)\pi(\theta)}{m(y)} \,d\theta} \\
+= {\displaystyle \int_{\Theta} f(y_{next}|\theta) \pi(\theta|y) \,d\theta} \\
+$$
+
+for the density of $Y$ we get:
+
+$$
+J(y) = \int_{\mathcal{Y}} \int_{\Theta} J(y_{next}, y, \theta) \,dy_{next}d\theta \\
+= \int_{\mathcal{Y}} \int_{\Theta} f(y_{next}|\theta) f(y|\theta) \pi(\theta) \,dy_{next}d\theta \\
+= \int_{\Theta}  f(y|\theta) \Bigg(\int_{\mathcal{Y}} f(y_{next}|\theta) \pi(\theta) \,dy_{next} \Bigg) d\theta \\
+= \int_{\Theta}  f(y|\theta) \pi(\theta) d\theta = m(y)
+$$
+
+To predict a new Gamma observation $Y_{next}$ after observing a $Y = y$ we can use the $m(y_{next}|y)$ and we have the **Negative Binomial Distribution** as follows:
+
+$$
+Y_{next}|y \sim NegBin \Bigg( p = \frac{r_{prior}+n}{r_{prior}+n+1}, m = s_{prior} + \sum_{i=1}^{n} y_i\Bigg)
+$$
+
+below is shown a simple code to illustrate this kind of posterior prediction based on the $y_{obs}$:
+
+```{r fig.align="center"}
+n <- length(y_obs)
+p <- (r_prior+n)/(r_prior+n+1)
+m <- (s_prior+sum(y_obs))
+
+plot(0:12, dnbinom(0:12,p = p, size = m),pch=19,col="red", main = TeX("Posterior Predictive Distribution $Y_{next}|y_1, ..., y_n \\sim NegBin (p, m)$"), xlab = "y", ylab = TeX("$\\pi(Y_{next}|y_1, ..., y_n)$"))
+
+post_mean <- (s_prior+sum(y_obs))/(r_prior+n)
+points(0:12,dpois(0:12,lambda = post_mean),pch=19,col="black")
+grid()
+
+legend("topright", legend=c("Predictions", "Observations"), col=c("red", "black"), pch=19, cex=0.8)
+```
+
+
+Considering the true data, the behaviour is the following.
+
+```{r fig.align="center"}
+bins <- tabulate(y_obs, nbins=length(y_obs))
+
+plot(bins[1:13]/length(y_obs), pch=19, col="red", main = TeX("$Y_{next}|y_1, ..., y_n \\sim NegBin (p, m)$ with the actual data"), xlab = "y", ylab = TeX("$\\pi(Y_{next}|y_1, ..., y_n)$"))
+
+
+lines(dnbinom(1:13, size = m, prob = p), lwd=3, type="h")
+points(dnbinom(1:13, size = m, prob = p),pch=19,col="black")
+grid()
+
+legend("topright", legend=c("Predictions", "Observations"), col=c("red", "black"), pch=19, cex=0.8)
+```
